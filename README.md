@@ -3,7 +3,6 @@
 **StudyMate AI — a tutor that learns the way you learn**[cite: 1]
 
 StudyMate AI is a personal study assistant prototype that explains, adapts, and checks your understanding until a topic actually sticks[cite: 1]. Traditional classrooms often fall short due to rigid speeds, student disconnect, and a lack of 1-on-1 guidance[cite: 1]. StudyMate AI fixes this by offering help whenever you're ready to learn, with no fixed pace and no waiting for office hours[cite: 1]. 
-LINK FOR WEBSITE[http://127.0.0.1:3000/frontend/index.html?vscode-livepreview=true]
 
 ## 🚀 Features
 
