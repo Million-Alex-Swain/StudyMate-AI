@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyMate AI — a tutor that learns the way you learn</title>
+<link rel="icon" href="assets/logo.png">
+<script>
+  // Apply saved theme before paint to avoid a flash of the wrong theme
+  (function () {
+    try {
+      const saved = localStorage.getItem('studymate-theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {
+      console.warn('Theme init skipped:', e);
+    }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Kalam:wght@400;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F3F6FB;
+    --paper-line: #DCE5F2;
+    --ink: #1B2B41;
+    --ink-soft: #56698A;
+    --red: #C23B2B;
+    --red-deep: #9E2E20;
+    --highlight: #F5C518;
+    --card: #FFFFFF;
+    --shadow-sm: 0 2px 8px rgba(27,43,65,0.06);
+    --shadow-md: 0 8px 24px rgba(27,43,65,0.08);
+    --shadow-lg: 0 18px 44px rgba(27,43,65,0.12);
+  }
+  [data-theme="dark"] {
+    --paper: #0F1620;
+    --paper-line: #26344A;
+    --ink: #EAF0FA;
+    --ink-soft: #93A3BE;
+    --red: #E2604A;
+    --red-deep: #C23B2B;
+    --highlight: #F5C518;
+    --card: #161F2C;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.25);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.35);
+    --shadow-lg: 0 18px 44px rgba(0,0,0,0.45);
+  }
+  html { transition: background-color 0.35s ease; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 34px,
+      var(--paper-line) 34px, var(--paper-line) 35px
+    );
+    transition: background-color 0.35s ease, color 0.35s ease, background-image 0.35s ease;
+  }
+  header, .btn, .btn-outline, .who-card, .chat-shell, .bubble.assistant,
+  .chat-input-row input, .chat-top, .chat-messages, .chat-input-row,
+  .stat-num, section, .theme-toggle {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+                box-shadow 0.3s ease, transform 0.18s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    section.reveal { opacity: 1 !important; transform: none !important; }
+  }
+  a { color: inherit; }
+  img, svg { max-width: 100%; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 24px); }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(243,246,251,0.94);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--paper-line);
+    transition: box-shadow 0.25s ease;
+  }
+  header.scrolled { box-shadow: var(--shadow-sm); }
+  nav.wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 64px; flex-wrap: wrap; gap: 10px; padding-top: 8px; padding-bottom: 8px;
+  }
+  .logo {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: clamp(1rem, 3vw, 1.15rem);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo .dot { color: var(--red); }
+  .logo-img { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
+  nav ul { list-style: none; display: flex; gap: clamp(12px, 3vw, 28px); font-size: 0.92rem; color: var(--ink-soft); flex-wrap: wrap; }
+  nav ul a:hover { color: var(--red); }
+  @media (max-width: 640px) {
+    nav ul { display: none; }
+  }
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600; font-size: 0.9rem;
+    background: var(--ink); color: var(--paper);
+    padding: 10px 18px; border-radius: 8px;
+    text-decoration: none; border: none; cursor: pointer;
+    display: inline-block;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  }
+  .btn:hover { background: var(--red); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .btn:active { transform: translateY(0); }
+
+  .theme-toggle {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid var(--paper-line);
+    background: var(--card); font-size: 1rem;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .theme-toggle:hover { border-color: var(--red); transform: rotate(15deg); }
+
+  /* Cursor-tracking shine */
+  .shine { position: relative; overflow: hidden; }
+  .shine::before {
+    content: "";
+    position: absolute;
+    top: var(--my, 50%); left: var(--mx, 50%);
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(255,255,255,0.35), transparent 60%);
+    transform: translate(-50%, -50%);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  [data-theme="dark"] .shine::before {
+    background: radial-gradient(circle, rgba(255,255,255,0.14), transparent 60%);
+  }
+  .shine:hover::before { opacity: 1; }
+
+  /* Page-wide cursor glow */
+  .cursor-glow {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    background: radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.55), transparent 70%);
+    mix-blend-mode: soft-light;
+  }
+  [data-theme="dark"] .cursor-glow {
+    background: radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.16), transparent 70%);
+    mix-blend-mode: screen;
+  }
+  @media (prefers-reduced-motion: reduce), (hover: none) {
+    .cursor-glow { display: none; }
+  }
+
+  .hero { padding: clamp(50px, 10vw, 90px) 0 clamp(36px, 7vw, 60px); position: relative; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem; color: var(--red);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: clamp(2.3rem, 5vw, 3.6rem);
+    line-height: 1.08; max-width: 780px;
+    letter-spacing: -0.01em;
+  }
+  h1 .scribble {
+    font-family: 'Kalam', cursive;
+    font-weight: 700; color: var(--red);
+    position: relative;
+    display: inline-block;
+  }
+  h1 .scribble::after {
+    content: "";
+    position: absolute; left: -4px; right: -4px; bottom: 2px; height: 10px;
+    background: var(--highlight); opacity: 0.55; z-index: -1;
+  }
+  .hero p.lede {
+    margin-top: 22px; max-width: 560px;
+    font-size: clamp(0.98rem, 2.2vw, 1.1rem); color: var(--ink-soft); line-height: 1.6;
+  }
+  .hero-cta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .btn-outline {
+    font-weight: 600; font-size: 0.9rem; color: var(--ink);
+    padding: 10px 18px; border-radius: 8px; border: 1.5px solid var(--ink);
+    text-decoration: none;
+    transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    display: inline-block;
+  }
+  .btn-outline:hover { border-color: var(--red); color: var(--red); transform: translateY(-2px); }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;
+    color: var(--ink-soft); margin-top: 40px;
+  }
+
+  section { padding: clamp(40px, 8vw, 70px) 0; border-top: 1px solid var(--paper-line); }
+  section.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  section.reveal.in-view { opacity: 1; transform: translateY(0); }
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem;
+    color: var(--red); margin-bottom: 10px;
+  }
+  h2 {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    max-width: 620px; line-height: 1.2; margin-bottom: 36px;
+  }
+  h2 .underline {
+    text-decoration: underline; text-decoration-color: var(--highlight);
+    text-decoration-thickness: 8px; text-underline-offset: -2px;
+  }
+
+  .marked-list { list-style: none; display: grid; gap: 22px; }
+  .marked-list li {
+    position: relative; padding-left: 30px; max-width: 640px;
+    font-size: 1.02rem; line-height: 1.55; color: var(--ink-soft);
+  }
+  .marked-list li::before {
+    content: "✕"; position: absolute; left: 0; top: 2px;
+    color: var(--red); font-family: 'Kalam', cursive; font-weight: 700;
+  }
+  .marked-list.good li::before { content: "✓"; }
+  .marked-list b { color: var(--ink); font-weight: 600; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: start; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .margin-note {
+    font-family: 'Kalam', cursive; color: var(--red); font-size: 1.05rem;
+    transform: rotate(-1.5deg); display: inline-block; margin-top: 8px;
+  }
+
+  /* Chat widget */
+  .chat-shell {
+    background: var(--card); border-radius: 16px;
+    border: 1px solid var(--paper-line);
+    box-shadow: var(--shadow-lg);
+    max-width: 640px; width: 100%; margin: 0 auto;
+    display: flex; flex-direction: column;
+    height: min(520px, 72vh);
+    min-height: 320px;
+    overflow: hidden;
+    animation: float-shell 5s ease-in-out infinite;
+  }
+  @keyframes float-shell {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .chat-top {
+    padding: 14px 18px; border-bottom: 1px solid var(--paper-line);
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem;
+  }
+  .chat-top .status { width: 8px; height: 8px; border-radius: 50%; background: #2ECC71; box-shadow: 0 0 0 0 rgba(46,204,113,0.5); animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot {
+    0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(46,204,113,0); }
+    100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
+  }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; scrollbar-color: var(--paper-line) transparent; }
+  .chat-messages::-webkit-scrollbar { width: 6px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--paper-line); border-radius: 3px; }
+  .bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 0.94rem; line-height: 1.5; white-space: pre-wrap; animation: pop-in 0.22s ease; }
+  @keyframes pop-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .bubble.assistant { align-self: flex-start; background: var(--paper); border: 1px solid var(--paper-line); border-bottom-left-radius: 4px; }
+  .bubble.user { align-self: flex-end; background: var(--ink); color: var(--paper); border-bottom-right-radius: 4px; }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--paper-line); }
+  .chat-input-row input {
+    flex: 1; min-width: 0; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--paper-line);
+    font-family: 'Inter', sans-serif; font-size: 16px; outline: none;
+  }
+  .chat-input-row input:focus { border-color: var(--red); }
+  .chat-input-row button { border: none; }
+  .chat-hint { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--ink-soft); text-align: center; margin-top: 12px; }
+  .ai-credit { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--ink-soft); text-align: center; margin-top: 4px; opacity: 0.8; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; }
+  @media (max-width: 700px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 380px) { .stat-grid { grid-template-columns: 1fr; } }
+  .stat-num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 2.1rem; color: var(--red); }
+  .stat-label { font-size: 0.88rem; color: var(--ink-soft); margin-top: 6px; }
+
+  .who-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  @media (max-width: 700px) { .who-grid { grid-template-columns: 1fr; } }
+  .who-card {
+    background: var(--card); border: 1px solid var(--paper-line); border-radius: 12px;
+    padding: 22px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .who-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: transparent; }
+  .who-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; margin-bottom: 8px; }
+  .who-card p { color: var(--ink-soft); font-size: 0.94rem; line-height: 1.5; }
+
+  footer { padding: 40px 0; text-align: center; color: var(--ink-soft); font-size: 0.85rem; }
+  footer .logo { justify-content: center; margin-bottom: 10px; }
+
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <div class="logo"><img src="assets/logo.png" alt="StudyMate AI logo" class="logo-img"> StudyMate AI</div>
+    <ul>
+      <li><a data-scroll="problem">Problem</a></li>
+      <li><a data-scroll="solution">Solution</a></li>
+      <li><a data-scroll="demo">Try it</a></li>
+      <li><a data-scroll="who">Who it's for</a></li>
+    </ul>
+    <a class="btn shine" data-scroll="demo">Talk to StudyMate AI →</a>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Smart Learning · Prototype</div>
+    <h1>Explains, adapts, and checks in<br>— whenever you're <span class="scribble">ready</span> to learn.</h1>
+    <p class="lede">StudyMate AI is a personal study assistant — it explains, adapts, and checks your understanding until a topic actually sticks. No fixed pace, no waiting for office hours.</p>
+    <div class="hero-cta">
+      <a class="btn shine" data-scroll="demo">Open the study chat</a>
+      <a class="btn-outline shine" data-scroll="problem">Why this exists</a>
+    </div>
+    <div class="tag">// the chat below calls a real AI model through a server-side proxy</div>
+  </div>
+</section>
+
+<section id="problem" class="reveal">
+  <div class="wrap">
+    <div class="section-num">01 — Problem statement</div>
+    <h2>Traditional classrooms <span class="underline">fall short.</span></h2>
+    <ul class="marked-list">
+      <li><b>Rigid speed.</b> One-size-fits-all teaching forces everyone through the same pace, whether they're ready or not.</li>
+      <li><b>Student disconnect.</b> Slower learners fall behind while faster learners get bored waiting.</li>
+      <li><b>Lack of guidance.</b> Real 1-on-1 help when you're stuck on a hard topic is rare and hard to schedule.</li>
+    </ul>
+    <div class="margin-note">— sound familiar?</div>
+  </div>
+</section>
+
+<section id="solution" class="reveal">
+  <div class="wrap">
+    <div class="section-num">02 — AI solution</div>
+    <h2>Meet StudyMate AI: your <span class="underline">personal study assistant.</span></h2>
+    <ul class="marked-list good">
+      <li><b>24/7 personal tutor.</b> Answers doubts instantly with simple, step-by-step explanations.</li>
+      <li><b>Adaptive difficulty.</b> Automatically adjusts depth based on how you respond.</li>
+      <li><b>Targeted practice.</b> Generates quick checks and summaries to fix weak spots.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="demo" class="reveal">
+  <div class="wrap">
+    <div class="section-num">03 — Live prototype</div>
+    <h2>Ask StudyMate AI something.</h2>
+    <div class="chat-shell shine">
+      <div class="chat-top"><span class="status"></span> StudyMate AI · online</div>
+      <div class="chat-messages" id="messages">
+        <div class="bubble assistant">Hi, I'm StudyMate AI. Tell me a subject and where you're stuck — I'll explain it step by step and check your understanding as we go.</div>
+      </div>
+      <div class="chat-input-row">
+        <input id="user-input" type="text" placeholder="e.g. I don't get quadratic equations" />
+        <button id="send-btn" class="btn shine">Send</button>
+      </div>
+    </div>
+    <div class="chat-hint">runs on a free-tier model via a server-side proxy — your key never touches the browser</div>
+    <div class="ai-credit">⚡ powered by Groq · Llama 3.3 70B</div>
+  </div>
+</section>
+
+<section id="outcomes" class="reveal">
+  <div class="wrap">
+    <div class="section-num">04 — Expected outcomes</div>
+    <h2>What changes for a student.</h2>
+    <div class="stat-grid">
+      <div><div class="stat-num">100%</div><div class="stat-label">Tailored pace — move on only after mastering a topic</div></div>
+      <div><div class="stat-num">3×</div><div class="stat-label">Better retention from bite-sized, interactive review</div></div>
+      <div><div class="stat-num">Zero</div><div class="stat-label">Learning gaps — doubts get resolved immediately</div></div>
+      <div><div class="stat-num">24/7</div><div class="stat-label">Support whenever you actually sit down to study</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="who" class="reveal">
+  <div class="wrap">
+    <div class="section-num">05 — Applications</div>
+    <h2>Who is it for?</h2>
+    <div class="who-grid">
+      <div class="who-card shine"><h3>School &amp; college students</h3><p>Homework help, exam prep, and quick concept reviews.</p></div>
+      <div class="who-card shine"><h3>Self-learners</h3><p>Picking up a new subject or skill independently, at any age.</p></div>
+      <div class="who-card shine"><h3>Teachers</h3><p>A teaching assistant that helps track where a class is getting stuck.</p></div>
+      <div class="who-card shine"><h3>Diverse learners</h3><p>Adapts explanation style to fit different ways of learning.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="logo"><img src="assets/logo.png" alt="StudyMate AI logo" class="logo-img"> StudyMate AI</div>
+  <div>Made by Alex — a student project prototype. Chat calls the model through a server-side proxy — the API key never reaches your browser.</div>
+</footer>
+
+<script>
+  // Smooth page-wide cursor glow
+  (function () {
+    const glow = document.getElementById('cursor-glow');
+    if (glow && window.matchMedia('(hover: hover)').matches) {
+      let targetX = window.innerWidth / 2, targetY = window.innerHeight / 2;
+      let curX = targetX, curY = targetY;
+      window.addEventListener('mousemove', (e) => {
+        targetX = e.clientX; targetY = e.clientY;
+      });
+      function animateGlow() {
+        curX += (targetX - curX) * 0.15;
+        curY += (targetY - curY) * 0.15;
+        glow.style.setProperty('--gx', curX + 'px');
+        glow.style.setProperty('--gy', curY + 'px');
+        requestAnimationFrame(animateGlow);
+      }
+      animateGlow();
+    }
+  })();
+
+  // Cursor-tracking shine effect
+  document.querySelectorAll('.shine').forEach(el => {
+    el.addEventListener('mousemove', (e) => {
+      const rect = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+    });
+  });
+
+  // Theme toggle
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  }
+  function updateToggleIcon() {
+    themeToggleBtn.textContent = currentTheme() === 'dark' ? '☀️' : '🌙';
+  }
+  if (themeToggleBtn) {
+    updateToggleIcon();
+    themeToggleBtn.addEventListener('click', () => {
+      const next = currentTheme() === 'dark' ? 'light' : 'dark';
+      if (next === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      try { localStorage.setItem('studymate-theme', next); } catch (e) { console.warn('Could not save theme:', e); }
+      updateToggleIcon();
+    });
+  } else {
+    console.warn('Theme toggle button not found in the page.');
+  }
+
+  // Reveal sections as they scroll into view
+  const revealEls = document.querySelectorAll('section.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    revealEls.forEach(el => io.observe(el));
+  } else {
+    revealEls.forEach(el => el.classList.add('in-view'));
+  }
+
+  // Header shadow once the page scrolls
+  const headerEl = document.querySelector('header');
+  window.addEventListener('scroll', () => {
+    headerEl.classList.toggle('scrolled', window.scrollY > 8);
+  }, { passive: true });
+
+  // In-page scrolling for nav/CTA links, without a real # navigation
+  document.querySelectorAll('[data-scroll]').forEach(el => {
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.style.cursor = 'pointer';
+    const go = (e) => {
+      e.preventDefault();
+      const target = document.getElementById(el.getAttribute('data-scroll'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
+  });
+
+  const BACKEND_URL = "http://localhost:3000/api/chat";
+  const messagesEl = document.getElementById("messages");
+  const inputEl = document.getElementById("user-input");
+  const sendBtn = document.getElementById("send-btn");
+  let history = [];
+
+  function addMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = "bubble " + role;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    addMessage("user", text);
+    history.push({ role: "user", content: text });
+    inputEl.value = "";
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        addMessage("assistant", "Error: " + data.error);
+      } else {
+        addMessage("assistant", data.reply);
+        history.push({ role: "assistant", content: data.reply });
+      }
+    } catch (err) {
+      addMessage("assistant", "Could not reach the server. Is the backend running?");
+    }
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+</script>
+
+<div class="cursor-glow" id="cursor-glow"></div>
+</body>
+</html>
