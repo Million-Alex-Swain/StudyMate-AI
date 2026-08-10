@@ -367,7 +367,7 @@
       </div>
     </div>
     <div class="chat-hint">runs on a free-tier model via a server-side proxy — your key never touches the browser</div>
-    <div class="ai-credit">⚡ powered by Groq · Llama 3.3 70B</div>
+    <div class="ai-credit" id="ai-credit">⚡ powered by …</div>
   </div>
 </section>
 
@@ -493,6 +493,18 @@
   });
 
   const BACKEND_URL = "http://localhost:3000/api/chat";
+
+  // Show which AI provider is actually active on the backend
+  fetch("http://localhost:3000/api/provider")
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById("ai-credit");
+      if (el && d.provider) el.textContent = "⚡ powered by " + d.provider;
+    })
+    .catch(() => {
+      const el = document.getElementById("ai-credit");
+      if (el) el.textContent = "⚡ AI status unavailable";
+    });
   const messagesEl = document.getElementById("messages");
   const inputEl = document.getElementById("user-input");
   const sendBtn = document.getElementById("send-btn");
