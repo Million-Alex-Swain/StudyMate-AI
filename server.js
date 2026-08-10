@@ -55,5 +55,6 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// The fix is applied to the two lines below:
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`StudyMate AI server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`StudyMate AI server running on port ${PORT}`));
