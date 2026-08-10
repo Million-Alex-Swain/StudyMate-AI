@@ -23,6 +23,14 @@ Keep answers short and focused — a few sentences or steps at a time, not a wal
 After explaining, briefly check the student's understanding with a quick question when it fits naturally.
 Adapt your depth to how the student responds: simplify further if they seem confused, go deeper if they seem confident.`;
 
+// ---------------------------------------------------
+// NEW FIX: This creates a homepage so you don't see an error 
+// when clicking the link in your Wasmer dashboard.
+// ---------------------------------------------------
+app.get('/', (req, res) => {
+  res.send('My StudyMate AI backend is successfully running!');
+});
+
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body; // [{role: "user"/"assistant", content: "..."}, ...]
@@ -55,6 +63,5 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// The fix is applied to the two lines below:
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`StudyMate AI server running on port ${PORT}`));
