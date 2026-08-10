@@ -1,6 +1,5 @@
 // server.js
 // Backend proxy for the StudyMate AI tutor chat. Calls Groq's free API.
-// The API key stays here on the server — never sent to the browser.
 
 const express = require('express');
 const cors = require('cors');
@@ -10,13 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const API_KEY = process.env.GROQ_API_KEY;
-
-if (!API_KEY) {
-  console.error('Missing GROQ_API_KEY in .env file. Get a free key at https://console.groq.com/keys');
-  process.exit(1);
-}
-
 const SYSTEM_PROMPT = `You are StudyMate AI, a patient, encouraging personal tutor.
 Explain concepts step by step using simple, everyday examples.
 Keep answers short and focused — a few sentences or steps at a time, not a wall of text.
@@ -24,16 +16,27 @@ After explaining, briefly check the student's understanding with a quick questio
 Adapt your depth to how the student responds: simplify further if they seem confused, go deeper if they seem confident.`;
 
 // ---------------------------------------------------
-// NEW FIX: This creates a homepage so you don't see an error 
-// when clicking the link in your Wasmer dashboard.
+// NEW FIX: This safely checks for your API key without 
+// crashing the entire server!
 // ---------------------------------------------------
 app.get('/', (req, res) => {
-  res.send('My StudyMate AI backend is successfully running!');
+  if (!process.env.GROQ_API_KEY) {
+    res.send('Server is running, but the GROQ_API_KEY is missing from Wasmer!');
+  } else {
+    res.send('My StudyMate AI backend is successfully running and the API key is loaded!');
+  }
 });
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body; // [{role: "user"/"assistant", content: "..."}, ...]
+    const API_KEY = process.env.GROQ_API_KEY;
+
+    // Send an error back to the chat window if the key is missing, instead of crashing.
+    if (!API_KEY) {
+      return res.status(500).json({ error: 'Server configuration error: Missing API Key in Wasmer' });
+    }
+
+    const { messages } = req.body; 
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
